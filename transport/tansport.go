@@ -12,6 +12,12 @@ type Transport struct {
 	Listener   net.Listener
 }
 
+func NewTransport(listenAddr string) *Transport {
+	return &Transport{
+		listenAddr: listenAddr,
+	}
+}
+
 func (tp *Transport) Listen() error {
 	var err error
 
@@ -20,6 +26,8 @@ func (tp *Transport) Listen() error {
 	if err != nil {
 		return err
 	}
+
+	go tp.Accept()
 
 	return nil
 
