@@ -51,5 +51,35 @@ func WriteFrame(w io.Writer, payload []byte) error {
 }
 
 func ReadFrame(r io.Reader) ([]byte, error) {
+	buf := make([]byte, 4)
 
+	// Read the 4-byte length
+	_, err := io.ReadFull(r, buf)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, io.ErrUnexpectedEOF
+		}
+		return nil, err
+	}
+
+	// Decode
+	L := binary.BigEndian.Uint32(buf[:])
+
+	if L < minPayload || L > maxPayload {
+		return nil, ErrInvalidPayloadLimit
+	}
+
+	// create a slice that can hold all the payload bytes
+	payload := make([]byte, L)
+
+	// read payload
+	_, err = io.ReadFull(r, payload)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, io.ErrUnexpectedEOF
+		}
+		return nil, err
+	}
+
+	return payload, nil
 }
