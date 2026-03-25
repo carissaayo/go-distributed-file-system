@@ -6,14 +6,14 @@ import (
 )
 
 type Transport struct {
-	remoteddr string
-	Listener  net.Listener
+	listenAddr string
+	Listener   net.Listener
 }
 
 func (tp *Transport) Listen() error {
 	var err error
 
-	tp.Listener, err = net.Listen("tcp", tp.remoteddr)
+	tp.Listener, err = net.Listen("tcp", tp.listenAddr)
 
 	if err != nil {
 		fmt.Printf("conn error: %s\n", err)
