@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	kindPING  = 0x01
-	kindPONG  = 0x02
-	kindError = 0x03
+	KindPING  = 0x01
+	KindPONG  = 0x02
+	KindError = 0x03
 )
 const (
 	maxPayload = 1_048_576
@@ -108,15 +108,15 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 	kind = payload[1]
 
 	switch kind {
-	case kindPING:
+	case KindPING:
 		if len(payload) != 2 {
 			return 0, 0, nil, ErrPINGMustHaveNoBody
 		}
-	case kindPONG:
+	case KindPONG:
 		if len(payload) != 2 {
 			return 0, 0, nil, ErrInvalidPONGLength
 		}
-	case kindError:
+	case KindError:
 		body = payload[2:]
 		if len(body) < 1 || len(body) > 1024 {
 			return 0, 0, nil, ErrInvalidBody
