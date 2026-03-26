@@ -21,7 +21,9 @@ var ErrInvalidPayloadLimit = errors.New("Invalid payload length")
 var ErrInvalidIncomingPayload = errors.New("Invalid incoming payload")
 var ErrInvalidVersion = errors.New("Invalid version")
 var ErrPINGMustHaveNoBody = errors.New("PING must have no body")
-var ErrUnkownKind = errors.New("Unknown Kind")
+var ErrInvalidPONGLength = errors.New("Invalid PONG length")
+var ErrInvalidBody = errors.New("Invalid Body")
+var ErrUnknownKind = errors.New("Unknown Kind")
 
 func WriteFrame(w io.Writer, payload []byte) error {
 	n := len(payload)
@@ -112,16 +114,16 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		}
 	case kindPONG:
 		if len(payload) != 2 {
-			return 0, 0, nil, ErrPINGMustHaveNoBody
+			return 0, 0, nil, ErrInvalidPONGLength
 		}
 	case kindError:
-		if len(payload) >= 3 {
-			if len(payload) <= 1024 {
-				body = payload[2:]
-			}
+		body = payload[2:]
+		if len(body) < 1 || len(body) > 1024 {
+			return 0, 0, nil, ErrInvalidBody
+
 		}
 	default:
-		return 0, 0, nil, ErrUnkownKind
+		return 0, 0, nil, ErrUnknownKind
 
 	}
 
