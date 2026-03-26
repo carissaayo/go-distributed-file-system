@@ -1,10 +1,10 @@
 package transport
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"net"
+
+	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
 )
 
 type Transport struct {
@@ -49,21 +49,29 @@ func (tp *Transport) Accept() {
 
 func (tp *Transport) handleConn(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 2000)
+	pongbuf := []byte{1, protocol.KindPONG}
 
 	for {
-		n, err := conn.Read(buf)
+		payload, err := protocol.ReadFrame(conn)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			} else {
-				fmt.Printf("TCP error: %s\n", err)
-				break
+			fmt.Printf("TCP error: %s\n", err)
+			break
+		}
+
+		_, kind, _, err := protocol.ParsePayload(payload)
+		if err != nil {
+			fmt.Printf("Error parsing the payload: %s\n", err)
+			return
+
+		}
+
+		if kind == protocol.KindPING {
+			err := protocol.WriteFrame(conn, pongbuf)
+			if err != nil {
+				fmt.Printf("Error writing the payload: %s\n", err)
 
 			}
 		}
-
-		fmt.Printf("message: %+v\n", buf[:n])
 
 	}
 }
