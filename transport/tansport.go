@@ -71,7 +71,8 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				fmt.Printf("Error writing the payload: %s\n", err)
 
 			}
+			return
 		}
-
 	}
+
 }
