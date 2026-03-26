@@ -7,12 +7,21 @@ import (
 )
 
 const (
-	maxPayload      = 1_048_576
-	minPayload      = 2
-	fieldSizeLength = 4
+	kindPING  = 0x01
+	kindPONG  = 0x02
+	kindError = 0x03
+)
+const (
+	maxPayload = 1_048_576
+	minPayload = 2
+	// fieldSizeLength = 4
 )
 
-var ErrInvalidPayloadLimit = errors.New("invalid payload length")
+var ErrInvalidPayloadLimit = errors.New("Invalid payload length")
+var ErrInvalidIncomingPayload = errors.New("Invalid incoming payload")
+var ErrInvalidVersion = errors.New("Invalid version")
+var ErrPINGMustHaveNoBody = errors.New("PING must have no body")
+var ErrUnkownKind = errors.New("Unknown Kind")
 
 func WriteFrame(w io.Writer, payload []byte) error {
 	n := len(payload)
@@ -82,4 +91,39 @@ func ReadFrame(r io.Reader) ([]byte, error) {
 	}
 
 	return payload, nil
+}
+
+func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err error) {
+
+	if len(payload) < 2 {
+		return 0, 0, nil, ErrInvalidIncomingPayload
+	}
+
+	version = payload[0]
+	if version != 1 {
+		return 0, 0, nil, ErrInvalidVersion
+	}
+	kind = payload[1]
+
+	switch kind {
+	case kindPING:
+		if len(payload) != 2 {
+			return 0, 0, nil, ErrPINGMustHaveNoBody
+		}
+	case kindPONG:
+		if len(payload) != 2 {
+			return 0, 0, nil, ErrPINGMustHaveNoBody
+		}
+	case kindError:
+		if len(payload) >= 3 {
+			if len(payload) <= 1024 {
+				body = payload[2:]
+			}
+		}
+	default:
+		return 0, 0, nil, ErrUnkownKind
+
+	}
+
+	return version, kind, body, nil
 }
