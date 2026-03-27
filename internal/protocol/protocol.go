@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"io"
 )
@@ -28,6 +29,11 @@ var ErrPINGMustHaveNoBody = errors.New("PING must have no body")
 var ErrInvalidPONGLength = errors.New("Invalid PONG length")
 var ErrInvalidBody = errors.New("Invalid Body")
 var ErrUnknownKind = errors.New("Unknown Kind")
+var ErrInvalidPutKind = errors.New("Invalid Put Kind")
+var ErrInvalidGetLength = errors.New("Invalid Get Length")
+var ErrInvalidGetCharacters = errors.New("Invalid Get Characters")
+var ErrInvalidStoredLength = errors.New("Invalid Stored Length")
+var ErrInvalidDataLength = errors.New("Invalid Data Length")
 
 func WriteFrame(w io.Writer, payload []byte) error {
 	n := len(payload)
@@ -126,10 +132,43 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 			return 0, 0, nil, ErrInvalidBody
 
 		}
+	case KindPut:
+		body = payload[2:]
+
+	case KindData:
+		if len(payload) < 2 {
+			return 0, 0, nil, ErrInvalidDataLength
+		}
+		body = payload[2:]
+
+	case KindGet:
+		if len(payload) != 66 {
+			return 0, 0, nil, ErrInvalidGetLength
+		}
+
+		if err := validKeyHexSuffix(payload[2:]); err != false {
+			return 0, 0, nil, ErrInvalidGetCharacters
+		}
+		body = payload[2:]
+
+	case KindStored:
+		if len(payload) != 66 {
+			return 0, 0, nil, ErrInvalidStoredLength
+		}
+		body = payload[2:]
+
 	default:
 		return 0, 0, nil, ErrUnknownKind
 
 	}
 
 	return version, kind, body, nil
+}
+
+func validKeyHexSuffix(b []byte) bool {
+	if len(b) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(string(b))
+	return err == nil
 }
