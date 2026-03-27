@@ -8,7 +8,7 @@ import (
 	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
 )
 
-func connect() {
+func main() {
 	conn, err := net.Dial("tcp", "localhost:3000")
 	if err != nil {
 		log.Fatal(err)
