@@ -7,9 +7,13 @@ import (
 )
 
 const (
-	KindPING  = 0x01
-	KindPONG  = 0x02
-	KindError = 0x03
+	KindPING   = 0x01
+	KindPONG   = 0x02
+	KindError  = 0x03
+	KindPut    = 0x10
+	KindGet    = 0x11
+	KindStored = 0x12
+	KindData   = 0x13
 )
 const (
 	maxPayload = 1_048_576

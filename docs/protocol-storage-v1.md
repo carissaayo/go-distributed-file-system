@@ -14,12 +14,14 @@ This document **extends** [protocol-v1.md](./protocol-v1.md). Unless stated othe
 
 ## New kinds (byte at offset 1)
 
-| Kind (hex) | Name       | Direction (typical) | Body (bytes at offset 2 … L−1) |
-|------------|------------|---------------------|----------------------------------|
-| **0x10**   | **PUT**    | Client → Server     | **Raw file/object bytes** (may be **empty**: then **L = 2**). |
-| **0x11**   | **GET**    | Client → Server     | **Exactly 64 bytes**: object key as **ASCII hex** SHA-256 (see below). |
+
+| Kind (hex) | Name       | Direction (typical) | Body (bytes at offset 2 … L−1)                                                                           |
+| ---------- | ---------- | ------------------- | -------------------------------------------------------------------------------------------------------- |
+| **0x10**   | **PUT**    | Client → Server     | **Raw file/object bytes** (may be **empty**: then **L = 2**).                                            |
+| **0x11**   | **GET**    | Client → Server     | **Exactly 64 bytes**: object key as **ASCII hex** SHA-256 (see below).                                   |
 | **0x12**   | **STORED** | Server → Client     | **Exactly 64 bytes**: ASCII hex of the **stored** object hash (same as key). Confirms **PUT** completed. |
-| **0x13**   | **DATA**   | Server → Client     | **Raw bytes** of the object returned for **GET** (may be empty). |
+| **0x13**   | **DATA**   | Server → Client     | **Raw bytes** of the object returned for **GET** (may be empty).                                         |
+
 
 **Note:** Use **ERROR** (`0x03`) for failures (e.g. unknown key, invalid GET body), with UTF-8 text in the body per v1.
 
@@ -70,7 +72,7 @@ This document **extends** [protocol-v1.md](./protocol-v1.md). Unless stated othe
 ### PUT two bytes of content `hi`
 
 - **L** = 2 + 2 = **4**
-- Payload: `01 10 68 69` → version **1**, **PUT**, body **`h` `i`**
+- Payload: `01 10 68 69` → version **1**, **PUT**, body `**h` `i`**
 
 ### GET (key)
 
@@ -92,3 +94,4 @@ This document **extends** [protocol-v1.md](./protocol-v1.md). Unless stated othe
 ## Document history
 
 - **storage-v1:** PUT/GET/STORED/DATA kinds, SHA-256 keys as 64 hex ASCII chars, single-frame size limits.
+
