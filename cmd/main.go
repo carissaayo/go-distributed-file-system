@@ -17,4 +17,6 @@ func main() {
 	}
 
 	select {}
+
+	connect()
 }
