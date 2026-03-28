@@ -130,7 +130,7 @@ func runGet(addr, keyHex string) {
 		log.Fatal("get: -key must be exactly 64 hex characters")
 	}
 	for _, c := range keyHex {
-		if c >= '0' && c <= '9' || c >= 'a' && c <= 'f' {
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') {
 			continue
 		}
 		log.Fatal("get: -key must be hexadecimal")
