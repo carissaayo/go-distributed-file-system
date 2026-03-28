@@ -1,7 +1,9 @@
 package transport
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
@@ -58,6 +60,9 @@ func (tp *Transport) handleConn(conn net.Conn) {
 	for {
 		payload, err := protocol.ReadFrame(conn)
 		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
 			fmt.Printf("TCP error: %s\n", err)
 			break
 		}
