@@ -30,7 +30,7 @@ var ErrInvalidPONGLength = errors.New("Invalid PONG length")
 var ErrInvalidBody = errors.New("Invalid Body")
 var ErrUnknownKind = errors.New("Unknown Kind")
 var ErrInvalidGetLength = errors.New("Invalid Get Length")
-var ErrInvalidGetCharacters = errors.New("Invalid Get Characters")
+var ErrInvalidHexCharacters = errors.New("Invalid Hex Characters")
 var ErrInvalidStoredLength = errors.New("Invalid Stored Length")
 var ErrInvalidDataLength = errors.New("Invalid Data Length")
 
@@ -135,9 +135,6 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		body = payload[2:]
 
 	case KindData:
-		if len(payload) < 2 {
-			return 0, 0, nil, ErrInvalidDataLength
-		}
 		body = payload[2:]
 
 	case KindGet:
@@ -146,7 +143,7 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		}
 
 		if !validKeyHexSuffix(payload[2:]) {
-			return 0, 0, nil, ErrInvalidGetCharacters
+			return 0, 0, nil, ErrInvalidHexCharacters
 		}
 		body = payload[2:]
 
@@ -154,6 +151,10 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		if len(payload) != 66 {
 			return 0, 0, nil, ErrInvalidStoredLength
 		}
+		if !validKeyHexSuffix(payload[2:]) {
+			return 0, 0, nil, ErrInvalidHexCharacters
+		}
+
 		body = payload[2:]
 
 	default:
