@@ -5,16 +5,19 @@ import (
 	"net"
 
 	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
+	"github.com/carissaayo/go-tcp-scratch/internal/store"
 )
 
 type Transport struct {
 	listenAddr string
 	Listener   net.Listener
+	store      *store.Store
 }
 
-func NewTransport(listenAddr string) *Transport {
+func NewTransport(listenAddr string, store *store.Store) *Transport {
 	return &Transport{
 		listenAddr: listenAddr,
+		store:      store,
 	}
 }
 
@@ -58,7 +61,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			break
 		}
 
-		_, kind, _, err := protocol.ParsePayload(payload)
+		_, kind, body, err := protocol.ParsePayload(payload)
 		if err != nil {
 			fmt.Printf("Error parsing the payload: %s\n", err)
 			return
@@ -72,6 +75,24 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 			}
 			return
+		}
+
+		if kind == protocol.KindPut {
+			keyHex, err := tp.store.Put(body)
+			if err != nil {
+				fmt.Printf("Error storing the body: %s\n", err)
+				return
+			}
+			storedBuf := []byte{1, protocol.KindStored}
+
+			data := append(storedBuf, []byte(keyHex)...)
+
+			err = protocol.WriteFrame(conn, data)
+			if err != nil {
+				fmt.Printf("Error writing the payload: %s\n", err)
+				return
+			}
+
 		}
 	}
 
