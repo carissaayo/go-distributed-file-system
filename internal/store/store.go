@@ -31,6 +31,12 @@ func (s *Store) Put(data []byte) (keyHex string, err error) {
 
 	path := objectPath(s.root, keyHex)
 
+	if _, err := os.Stat(path); err == nil {
+		return keyHex, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
