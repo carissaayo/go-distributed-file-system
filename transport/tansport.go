@@ -53,6 +53,7 @@ func (tp *Transport) Accept() {
 func (tp *Transport) handleConn(conn net.Conn) {
 	defer conn.Close()
 	pongbuf := []byte{1, protocol.KindPONG}
+	errorBuf := []byte{1, protocol.KindError}
 
 	for {
 		payload, err := protocol.ReadFrame(conn)
@@ -90,6 +91,23 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			err = protocol.WriteFrame(conn, data)
 			if err != nil {
 				fmt.Printf("Error writing the payload: %s\n", err)
+				return
+			}
+
+		}
+
+		if kind == protocol.KindGet {
+			data, err := tp.store.Get(string(body))
+
+			if err != nil {
+				errPayload := append(errorBuf, []byte("data not found")...)
+				err = protocol.WriteFrame(conn, errPayload)
+				return
+			}
+
+			buf := append([]byte{1, protocol.KindData}, data...)
+			if err = protocol.WriteFrame(conn, buf); err != nil {
+				fmt.Printf("Error writing the get data")
 				return
 			}
 
