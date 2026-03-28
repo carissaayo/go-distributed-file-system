@@ -73,7 +73,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			err := protocol.WriteFrame(conn, pongbuf)
 			if err != nil {
 				fmt.Printf("Error writing the payload: %s\n", err)
-
+				return
 			}
 			continue
 		}
