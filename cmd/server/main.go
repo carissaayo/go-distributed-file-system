@@ -3,14 +3,16 @@ package main
 import (
 	"log"
 
+	"github.com/carissaayo/go-tcp-scratch/internal/store"
 	"github.com/carissaayo/go-tcp-scratch/transport"
 )
 
-var listenAddr string
-
 func main() {
-	listenAddr = ":3000"
-	tp := transport.NewTransport(listenAddr)
+	listenAddr := ":3000"
+	dataDir := "./data"
+
+	st := store.NewStore(dataDir)
+	tp := transport.NewTransport(listenAddr, st)
 
 	if err := tp.Listen(); err != nil {
 		log.Fatal(err)
