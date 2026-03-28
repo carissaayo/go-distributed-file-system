@@ -106,7 +106,9 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 			if err != nil {
 				errPayload := append(errorBuf, []byte("data not found")...)
-				err = protocol.WriteFrame(conn, errPayload)
+				if werr := protocol.WriteFrame(conn, errPayload); werr != nil {
+					fmt.Printf("Error writing ERROR frame: %s\n", werr)
+				}
 				return
 			}
 
