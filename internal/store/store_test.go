@@ -60,3 +60,21 @@ func TestPutGetEmpty(t *testing.T) {
 		t.Fatalf("want empty blob, got len %d", len(got))
 	}
 }
+
+func TestPutIdempotent(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(root)
+	data := []byte("same content twice")
+
+	k1, err := s.Put(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k2, err := s.Put(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k1 != k2 {
+		t.Fatalf("keys differ: %s vs %s", k1, k2)
+	}
+}
