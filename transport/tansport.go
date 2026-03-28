@@ -114,7 +114,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 			buf := append([]byte{1, protocol.KindData}, data...)
 			if err = protocol.WriteFrame(conn, buf); err != nil {
-				fmt.Printf("Error writing the get data")
+				fmt.Printf("Error writing DATA frame: %s\n", err)
 				return
 			}
 
