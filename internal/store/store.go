@@ -34,7 +34,17 @@ func (s *Store) PutReader(r io.Reader) (keyHex string, err error) {
 	}
 	defer f.Close()
 
-	written, err := io.CopyBuffer(f, r, newBuf)
+	h := sha256.New()
+	mw := io.MultiWriter(f, h)
+	_, err = io.CopyBuffer(mw, r, newBuf)
+	if err != nil {
+		println("Failed to copy buffer to %s \n", err)
+	}
+
+	sum := h.Sum(nil)
+	keyHex = hex.EncodeToString(sum)
+
+	return keyHex, nil
 
 }
 
