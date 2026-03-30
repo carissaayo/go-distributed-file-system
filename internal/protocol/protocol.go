@@ -8,18 +8,22 @@ import (
 )
 
 const (
-	KindPING   = 0x01
-	KindPONG   = 0x02
-	KindError  = 0x03
-	KindPut    = 0x10
-	KindGet    = 0x11
-	KindStored = 0x12
-	KindData   = 0x13
+	KindPING           = 0x01
+	KindPONG           = 0x02
+	KindError          = 0x03
+	KindPut            = 0x10
+	KindGet            = 0x11
+	KindStored         = 0x12
+	KindData           = 0x13
+	KIndPutStreamBegin = 0x14
+	KindPutStreamChunk = 0x15
+	KindPutStreamEnd   = 0x16
+	KindDataChunk      = 0x17
+	KindDataEnd        = 0x18
 )
 const (
 	maxPayload = 1_048_576
 	minPayload = 2
-	// fieldSizeLength = 4
 )
 
 var ErrInvalidPayloadLimit = errors.New("Invalid payload length")
