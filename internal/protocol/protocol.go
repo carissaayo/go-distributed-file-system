@@ -169,7 +169,7 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		}
 
 	case KindPutStreamChunk:
-		if len(payload) > 2 {
+		if len(payload) >= 2 {
 			body = payload[2:]
 
 		}
@@ -180,7 +180,7 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		}
 
 	case KindDataChunk:
-		if len(payload) > 2 {
+		if len(payload) >= 2 {
 			body = payload[2:]
 
 		}
