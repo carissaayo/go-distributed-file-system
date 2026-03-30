@@ -39,6 +39,7 @@ var ErrInvalidStoredLength = errors.New("Invalid Stored Length")
 var ErrInvalidDataLength = errors.New("Invalid Data Length")
 var ErrStreamBeginMustHaveNoBody = errors.New("Stream Begin  must have no body")
 var ErrStreamEndMustHaveNoBody = errors.New("Stream End  must have no body")
+var ErrDataEndMustHaveNoBody = errors.New("Data End  must have no body")
 
 func WriteFrame(w io.Writer, payload []byte) error {
 	n := len(payload)
@@ -185,6 +186,10 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 
 		}
 
+	case KindDataEnd:
+		if len(payload) != 2 {
+			return 0, 0, nil, ErrDataEndMustHaveNoBody
+		}
 	default:
 		return 0, 0, nil, ErrUnknownKind
 
