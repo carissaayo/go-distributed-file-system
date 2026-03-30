@@ -123,7 +123,41 @@ func (tp *Transport) handleConn(conn net.Conn) {
 					}
 					continue
 				}
+			case protocol.KindPutStreamEnd:
+				if err := upload.pw.Close(); err != nil {
+					<-upload.done
+					upload = nil
+					if !writeError("end stream failed") {
+						return
+					}
+					continue
+				}
+
+				res := <-upload.done
+				upload = nil
+
+				if res.err != nil {
+					fmt.Printf("Error storing stream: %s\n", res.err)
+					if !writeError("store failed") {
+						return
+					}
+					continue
+				}
+
+				stored := append([]byte{1, protocol.KindStored}, []byte(res.keyHex)...)
+
+				if err := protocol.WriteFrame(conn, stored); err != nil {
+					fmt.Printf("Error writing STORED frame: %s\n", err)
+					return
+				}
+
+			default:
+				abortUpload()
+				if !writeError("unexpected frame during upload") {
+					return
+				}
 			}
+			continue
 		}
 
 		if kind == protocol.KindPING {
