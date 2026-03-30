@@ -15,7 +15,7 @@ const (
 	KindGet            = 0x11
 	KindStored         = 0x12
 	KindData           = 0x13
-	KIndPutStreamBegin = 0x14
+	KindPutStreamBegin = 0x14
 	KindPutStreamChunk = 0x15
 	KindPutStreamEnd   = 0x16
 	KindDataChunk      = 0x17
@@ -163,7 +163,7 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 
 		body = payload[2:]
 
-	case KIndPutStreamBegin:
+	case KindPutStreamBegin:
 		if len(payload) != 2 {
 			return 0, 0, nil, ErrStreamBeginMustHaveNoBody
 		}
