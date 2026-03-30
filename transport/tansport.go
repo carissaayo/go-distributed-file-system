@@ -10,6 +10,18 @@ import (
 	"github.com/carissaayo/go-tcp-scratch/internal/store"
 )
 
+// maxBodyPerFrame is the max object bytes per DATA / DATA_CHUNK frame (L = 2 + body ≤ MaxPayload).
+const maxBodyPerFrame = protocol.MaxPayload - 2
+
+type putResult struct {
+	keyHex string
+	err    error
+} 
+
+type uploadSession struct {
+	pw   *io.PipeWriter
+	done chan putResult
+}
 type Transport struct {
 	listenAddr string
 	Listener   net.Listener
@@ -56,6 +68,31 @@ func (tp *Transport) handleConn(conn net.Conn) {
 	defer conn.Close()
 	pongbuf := []byte{1, protocol.KindPONG}
 	errorBuf := []byte{1, protocol.KindError}
+	var upload *uploadSession
+
+writeError := func(msg string) bool {
+		if msg == "" {
+			msg = "error"
+		}
+		if len(msg) > 1024 {
+			msg = msg[:1024]
+		}
+		p := append(append([]byte{}, errorPrefix...), []byte(msg)...)
+		if err := protocol.WriteFrame(conn, p); err != nil {
+			fmt.Printf("Error writing ERROR frame: %s\n", err)
+			return false
+		}
+		return true
+	}
+
+	abortUpload := func() {
+		if upload == nil {
+			return
+		}
+		_ = upload.pw.CloseWithError(errors.New("upload aborted"))
+		<-upload.done
+		upload = nil
+	}
 
 	for {
 		payload, err := protocol.ReadFrame(conn)
@@ -118,6 +155,10 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				return
 			}
 
+		}
+
+		if kind == protocol.KindPutStreamBegin{
+			if body 
 		}
 	}
 
