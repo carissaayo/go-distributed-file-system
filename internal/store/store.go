@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -22,6 +23,19 @@ func objectPath(root, keyHex string) string {
 	a, b := keyHex[0:2], keyHex[2:4]
 	name := keyHex
 	return filepath.Join(root, a, b, name)
+}
+
+func (s *Store) PutReader(r io.Reader) (keyHex string, err error) {
+	newBuf := make([]byte, 32*1024)
+	f, err := os.CreateTemp("", "blob-*")
+	if err != nil {
+		println("Failed to create a temp directory %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	written, err := io.CopyBuffer(f, r, newBuf)
+
 }
 
 // Put writes data to the path determined by its hash; returns the content key (hex).
