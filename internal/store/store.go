@@ -26,26 +26,49 @@ func objectPath(root, keyHex string) string {
 }
 
 func (s *Store) PutReader(r io.Reader) (keyHex string, err error) {
-	newBuf := make([]byte, 32*1024)
-	f, err := os.CreateTemp("", "blob-*")
-	if err != nil {
-		println("Failed to create a temp directory %v\n", err)
-		return
+	buf := make([]byte, 32*1024)
+	staging := filepath.Join(s.root, ".tmp")
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return "", err
 	}
-	defer f.Close()
+	f, err := os.CreateTemp(staging, "blob-*")
+	if err != nil {
+		return "", err
+	}
+	tmpPath := f.Name()
 
 	h := sha256.New()
 	mw := io.MultiWriter(f, h)
-	_, err = io.CopyBuffer(mw, r, newBuf)
-	if err != nil {
-		println("Failed to copy buffer to %s \n", err)
+	if _, err = io.CopyBuffer(mw, r, buf); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
+		return "", err
 	}
 
-	sum := h.Sum(nil)
-	keyHex = hex.EncodeToString(sum)
+	keyHex = hex.EncodeToString(h.Sum(nil))
+	path := objectPath(s.root, keyHex)
 
+	if _, err := os.Stat(path); err == nil {
+		os.Remove(tmpPath)
+		return keyHex, nil
+	} else if !os.IsNotExist(err) {
+		os.Remove(tmpPath)
+		return "", err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		os.Remove(tmpPath)
+		return "", err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return "", err
+	}
 	return keyHex, nil
-
 }
 
 // Put writes data to the path determined by its hash; returns the content key (hex).
