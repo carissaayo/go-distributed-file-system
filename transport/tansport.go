@@ -160,16 +160,16 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			continue
 		}
 
-		if kind == protocol.KindPING {
+		switch kind {
+		case protocol.KindPING:
 			err := protocol.WriteFrame(conn, pongbuf)
 			if err != nil {
 				fmt.Printf("Error writing the payload: %s\n", err)
 				return
 			}
 			continue
-		}
 
-		if kind == protocol.KindPut {
+		case protocol.KindPut:
 			keyHex, err := tp.store.Put(body)
 			if err != nil {
 				fmt.Printf("Error storing the body: %s\n", err)
@@ -185,11 +185,8 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				return
 			}
 
-		}
-
-		if kind == protocol.KindGet {
+		case protocol.KindGet:
 			data, err := tp.store.Get(string(body))
-
 			if err != nil {
 				errPayload := append(errorBuf, []byte("data not found")...)
 				if werr := protocol.WriteFrame(conn, errPayload); werr != nil {
