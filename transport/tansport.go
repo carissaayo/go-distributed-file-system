@@ -112,7 +112,18 @@ func (tp *Transport) handleConn(conn net.Conn) {
 		}
 
 		if upload != nil {
-
+			switch kind {
+			case protocol.KindPutStreamChunk:
+				if _, err := upload.pw.Write(body); err != nil {
+					_ = upload.pw.CloseWithError(err)
+					<-upload.done
+					upload = nil
+					if !writeError("chunk write failed") {
+						return
+					}
+					continue
+				}
+			}
 		}
 
 		if kind == protocol.KindPING {
