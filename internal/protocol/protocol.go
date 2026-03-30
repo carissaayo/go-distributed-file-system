@@ -37,6 +37,8 @@ var ErrInvalidGetLength = errors.New("Invalid Get Length")
 var ErrInvalidHexCharacters = errors.New("Invalid Hex Characters")
 var ErrInvalidStoredLength = errors.New("Invalid Stored Length")
 var ErrInvalidDataLength = errors.New("Invalid Data Length")
+var ErrStreamBeginMustHaveNoBody = errors.New("Stream Begin  must have no body")
+var ErrStreamEndMustHaveNoBody = errors.New("Stream End  must have no body")
 
 func WriteFrame(w io.Writer, payload []byte) error {
 	n := len(payload)
@@ -160,6 +162,28 @@ func ParsePayload(payload []byte) (version byte, kind byte, body []byte, err err
 		}
 
 		body = payload[2:]
+
+	case KIndPutStreamBegin:
+		if len(payload) != 2 {
+			return 0, 0, nil, ErrStreamBeginMustHaveNoBody
+		}
+
+	case KindPutStreamChunk:
+		if len(payload) > 2 {
+			body = payload[2:]
+
+		}
+
+	case KindPutStreamEnd:
+		if len(payload) != 2 {
+			return 0, 0, nil, ErrStreamEndMustHaveNoBody
+		}
+
+	case KindDataChunk:
+		if len(payload) > 2 {
+			body = payload[2:]
+
+		}
 
 	default:
 		return 0, 0, nil, ErrUnknownKind
