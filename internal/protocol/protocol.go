@@ -22,8 +22,8 @@ const (
 	KindDataEnd        = 0x18
 )
 const (
-	maxPayload = 1_048_576
-	minPayload = 2
+	MaxPayload = 1_048_576
+	MinPayload = 2
 )
 
 var ErrInvalidPayloadLimit = errors.New("Invalid payload length")
@@ -43,7 +43,7 @@ var ErrDataEndMustHaveNoBody = errors.New("Data End  must have no body")
 
 func WriteFrame(w io.Writer, payload []byte) error {
 	n := len(payload)
-	if n < minPayload || n > maxPayload {
+	if n < MinPayload || n > MaxPayload {
 		return ErrInvalidPayloadLimit
 	}
 
@@ -92,7 +92,7 @@ func ReadFrame(r io.Reader) ([]byte, error) {
 	// Decode
 	L := binary.BigEndian.Uint32(buf[:])
 
-	if L < minPayload || L > maxPayload {
+	if L < MinPayload || L > MaxPayload {
 		return nil, ErrInvalidPayloadLimit
 	}
 

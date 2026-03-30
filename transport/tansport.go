@@ -16,7 +16,7 @@ const maxBodyPerFrame = protocol.MaxPayload - 2
 type putResult struct {
 	keyHex string
 	err    error
-} 
+}
 
 type uploadSession struct {
 	pw   *io.PipeWriter
@@ -70,14 +70,14 @@ func (tp *Transport) handleConn(conn net.Conn) {
 	errorBuf := []byte{1, protocol.KindError}
 	var upload *uploadSession
 
-writeError := func(msg string) bool {
+	writeError := func(msg string) bool {
 		if msg == "" {
 			msg = "error"
 		}
 		if len(msg) > 1024 {
 			msg = msg[:1024]
 		}
-		p := append(append([]byte{}, errorPrefix...), []byte(msg)...)
+		p := append(append([]byte{}, errorBuf...), []byte(msg)...)
 		if err := protocol.WriteFrame(conn, p); err != nil {
 			fmt.Printf("Error writing ERROR frame: %s\n", err)
 			return false
@@ -108,6 +108,10 @@ writeError := func(msg string) bool {
 		if err != nil {
 			fmt.Printf("Error parsing the payload: %s\n", err)
 			return
+
+		}
+
+		if upload != nil {
 
 		}
 
@@ -157,9 +161,6 @@ writeError := func(msg string) bool {
 
 		}
 
-		if kind == protocol.KindPutStreamBegin{
-			if body 
-		}
 	}
 
 }
