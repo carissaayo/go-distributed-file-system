@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 
 	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
 	"github.com/carissaayo/go-tcp-scratch/internal/store"
@@ -186,7 +187,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			}
 
 		case protocol.KindGet:
-			data, err := tp.store.Get(string(body))
+			r, err := tp.store.GetReader(string(body))
 			if err != nil {
 				errPayload := append(errorBuf, []byte("data not found")...)
 				if werr := protocol.WriteFrame(conn, errPayload); werr != nil {
@@ -194,29 +195,30 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				}
 				return
 			}
-			if len(data) <= maxBodyPerFrame {
-				buf := append([]byte{1, protocol.KindData}, data...)
-				if err = protocol.WriteFrame(conn, buf); err != nil {
+			defer r.Close()
+
+			fi, err := r.(*os.File).Stat()
+			if err != nil {
+				fmt.Printf("Error writing ERROR frame: %s\n", err)
+				return
+			}
+
+			size := fi.Size()
+			if size+2 <= protocol.MaxPayload {
+				buf := make([]byte, size)
+				if _, err := io.ReadFull(r, buf); err != nil {
+					fmt.Printf("Error Reading single frame: %s\n", err)
+					return
+				}
+				dataBuf := append([]byte{1, protocol.KindData}, buf...)
+
+				if err := protocol.WriteFrame(conn, dataBuf); err != nil {
 					fmt.Printf("Error writing DATA frame: %s\n", err)
 					return
 				}
 				continue
-			}
-			for i := 0; i < len(data); {
-				end := i + maxBodyPerFrame
-				if end > len(data) {
-					end = len(data)
-				}
-				chunk := append([]byte{1, protocol.KindDataChunk}, data[i:end]...)
-				if err := protocol.WriteFrame(conn, chunk); err != nil {
-					fmt.Printf("Error writing DATA_CHUNK frame: %s\n", err)
-					return
-				}
-				i = end
-			}
-			if err := protocol.WriteFrame(conn, []byte{1, protocol.KindDataEnd}); err != nil {
-				fmt.Printf("Error writing DATA_END frame: %s\n", err)
-				return
+			} else {
+
 			}
 
 		case protocol.KindPutStreamBegin:

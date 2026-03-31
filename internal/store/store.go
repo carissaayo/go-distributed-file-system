@@ -25,6 +25,15 @@ func objectPath(root, keyHex string) string {
 	return filepath.Join(root, a, b, name)
 }
 
+func (s *Store) GetReader(keyHex string) (getReader io.ReadCloser, err error) {
+	path := objectPath(s.root, keyHex)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
 func (s *Store) PutReader(r io.Reader) (keyHex string, err error) {
 	buf := make([]byte, 32*1024)
 	staging := filepath.Join(s.root, ".tmp")
