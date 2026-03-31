@@ -189,23 +189,33 @@ func (tp *Transport) handleConn(conn net.Conn) {
 		case protocol.KindGet:
 			r, err := tp.store.GetReader(string(body))
 			if err != nil {
-				errPayload := append(errorBuf, []byte("data not found")...)
-				if werr := protocol.WriteFrame(conn, errPayload); werr != nil {
-					fmt.Printf("Error writing ERROR frame: %s\n", werr)
+				if os.IsNotExist(err) {
+					errPayload := append(errorBuf, []byte("data not found")...)
+					if werr := protocol.WriteFrame(conn, errPayload); werr != nil {
+						fmt.Printf("Error writing ERROR frame: %s\n", werr)
+					}
+				} else {
+					fmt.Printf("Error opening object: %s\n", err)
+					if !writeError("internal error") {
+						return
+					}
 				}
 				return
 			}
-			defer r.Close()
 
 			fi, err := r.(*os.File).Stat()
 			if err != nil {
-				fmt.Printf("Error writing ERROR frame: %s\n", err)
+				defer r.Close()
+				fmt.Printf("Error stat object: %s\n", err)
+				if !writeError("internal error") {
+					return
+				}
 				return
 			}
 
 			size := fi.Size()
-			buf := make([]byte, size)
 			if size+2 <= protocol.MaxPayload {
+				buf := make([]byte, size)
 				if _, err := io.ReadFull(r, buf); err != nil {
 					fmt.Printf("Error Reading single frame: %s\n", err)
 					return
