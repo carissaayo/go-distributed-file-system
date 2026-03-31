@@ -9,6 +9,9 @@ import (
 	"github.com/carissaayo/go-tcp-scratch/internal/store"
 )
 
+// maxObjectBodyPerFrame is the max raw object bytes in one PUT/DATA(_CHUNK) frame (matches transport + client).
+const maxObjectBodyPerFrame = protocol.MaxPayload - 2
+
 // TestHandleConnPutGetRoundTrip runs handleConn over real TCP: PING/PONG, PUT→STORED, GET→DATA.
 func TestHandleConnPutGetRoundTrip(t *testing.T) {
 	root := t.TempDir()
@@ -92,6 +95,126 @@ func TestHandleConnPutGetRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(gotData, data) {
 		t.Fatalf("got %q want %q", gotData, data)
+	}
+
+	conn.Close()
+	<-done
+}
+
+// readGetBody reads a full GET response: either one DATA frame or DATA_CHUNK* followed by DATA_END.
+func readGetBody(t *testing.T, conn net.Conn) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	for {
+		payload, err := protocol.ReadFrame(conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, kind, body, err := protocol.ParsePayload(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		switch kind {
+		case protocol.KindError:
+			t.Fatalf("GET error: %s", string(body))
+		case protocol.KindData:
+			out.Write(body)
+			return out.Bytes()
+		case protocol.KindDataChunk:
+			out.Write(body)
+		case protocol.KindDataEnd:
+			return out.Bytes()
+		default:
+			t.Fatalf("unexpected GET response kind %#x", kind)
+		}
+	}
+}
+
+// TestHandleConnStreamingPutGetRoundTrip exercises storage v2: PUT_STREAM_* upload and DATA_CHUNK+DATA_END download.
+// Object size is chosen so one v1 PUT frame cannot hold it and the server must stream the GET response.
+func TestHandleConnStreamingPutGetRoundTrip(t *testing.T) {
+	// Body length > max single-frame PUT body ⇒ client would use streaming; server PutReader accepts the same stream.
+	data := bytes.Repeat([]byte{'z'}, protocol.MaxPayload-1)
+
+	root := t.TempDir()
+	st := store.NewStore(root)
+	tp := NewTransport("127.0.0.1:0", st)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c, err := ln.Accept()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		tp.handleConn(c)
+	}()
+
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPING}); err != nil {
+		t.Fatal(err)
+	}
+	pong, err := protocol.ReadFrame(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, kind, _, err := protocol.ParsePayload(pong)
+	if err != nil || kind != protocol.KindPONG {
+		t.Fatalf("handshake: %v kind %#x", err, kind)
+	}
+
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamBegin}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < len(data); {
+		end := i + maxObjectBodyPerFrame
+		if end > len(data) {
+			end = len(data)
+		}
+		chunk := append([]byte{1, protocol.KindPutStreamChunk}, data[i:end]...)
+		if err := protocol.WriteFrame(conn, chunk); err != nil {
+			t.Fatal(err)
+		}
+		i = end
+	}
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamEnd}); err != nil {
+		t.Fatal(err)
+	}
+
+	storedFr, err := protocol.ReadFrame(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, skind, keyHex, err := protocol.ParsePayload(storedFr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skind != protocol.KindStored {
+		t.Fatalf("want STORED, got %#x", skind)
+	}
+	if len(keyHex) != 64 {
+		t.Fatalf("key len %d", len(keyHex))
+	}
+
+	get := append([]byte{1, protocol.KindGet}, keyHex...)
+	if err := protocol.WriteFrame(conn, get); err != nil {
+		t.Fatal(err)
+	}
+	got := readGetBody(t, conn)
+	if !bytes.Equal(got, data) {
+		t.Fatalf("round-trip mismatch: got %d bytes want %d", len(got), len(data))
 	}
 
 	conn.Close()
