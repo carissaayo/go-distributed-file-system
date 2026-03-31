@@ -194,15 +194,49 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				}
 				return
 			}
-
-			buf := append([]byte{1, protocol.KindData}, data...)
-			if err = protocol.WriteFrame(conn, buf); err != nil {
-				fmt.Printf("Error writing DATA frame: %s\n", err)
+			if len(data) <= maxBodyPerFrame {
+				buf := append([]byte{1, protocol.KindData}, data...)
+				if err = protocol.WriteFrame(conn, buf); err != nil {
+					fmt.Printf("Error writing DATA frame: %s\n", err)
+					return
+				}
+				continue
+			}
+			for i := 0; i < len(data); {
+				end := i + maxBodyPerFrame
+				if end > len(data) {
+					end = len(data)
+				}
+				chunk := append([]byte{1, protocol.KindDataChunk}, data[i:end]...)
+				if err := protocol.WriteFrame(conn, chunk); err != nil {
+					fmt.Printf("Error writing DATA_CHUNK frame: %s\n", err)
+					return
+				}
+				i = end
+			}
+			if err := protocol.WriteFrame(conn, []byte{1, protocol.KindDataEnd}); err != nil {
+				fmt.Printf("Error writing DATA_END frame: %s\n", err)
 				return
 			}
 
+		case protocol.KindPutStreamBegin:
+			pr, pw := io.Pipe()
+			done := make(chan putResult, 1)
+			go func() {
+				k, e := tp.store.PutReader(pr)
+				done <- putResult{k, e}
+			}()
+			upload = &uploadSession{pw: pw, done: done}
+
+		case protocol.KindPutStreamChunk, protocol.KindPutStreamEnd:
+			if !writeError("PUT_STREAM_BEGIN required") {
+				return
+			}
+
+		default:
+			if !writeError("unexpected or unsupported kind") {
+				return
+			}
 		}
-
 	}
-
 }
