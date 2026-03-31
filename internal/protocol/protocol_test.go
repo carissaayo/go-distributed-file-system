@@ -26,11 +26,11 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	}
 }
 
-// TestReadFrame_InvalidLength rejects L > maxPayload before allocating a huge buffer.
+// TestReadFrame_InvalidLength rejects L > MaxPayload before allocating a huge buffer.
 func TestReadFrame_InvalidLength(t *testing.T) {
 	var buf bytes.Buffer
 	var lenBuf [4]byte
-	binary.BigEndian.PutUint32(lenBuf[:], uint32(maxPayload+1))
+	binary.BigEndian.PutUint32(lenBuf[:], uint32(MaxPayload+1))
 	_, _ = buf.Write(lenBuf[:])
 
 	_, err := ReadFrame(&buf)
