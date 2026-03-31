@@ -204,8 +204,8 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			}
 
 			size := fi.Size()
+			buf := make([]byte, size)
 			if size+2 <= protocol.MaxPayload {
-				buf := make([]byte, size)
 				if _, err := io.ReadFull(r, buf); err != nil {
 					fmt.Printf("Error Reading single frame: %s\n", err)
 					return
@@ -218,7 +218,9 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				}
 				continue
 			} else {
-
+				for {
+					n, err := r.Read(buf)
+				}
 			}
 
 		case protocol.KindPutStreamBegin:
