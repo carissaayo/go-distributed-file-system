@@ -15,9 +15,6 @@ import (
 // maxBodyPerFrame is max object bytes per PUT/DATA(_CHUNK) frame body.
 const maxBodyPerFrame = protocol.MaxPayload - 2
 
-// Matches internal/protocol max frame payload (version+kind+body).
-const maxFramePayload = 1_048_576
-
 func main() {
 	addr := flag.String("addr", "localhost:3000", "server TCP address (host:port)")
 	flag.Parse()
@@ -103,7 +100,7 @@ func runPut(addr, file string) {
 		log.Fatal(err)
 	}
 
-	// when the whole object fits in one frame, use storage v1 single PUT.
+	// Single-frame PUT (storage v1) when the whole object fits in one frame.
 	if fi.Size()+2 <= protocol.MaxPayload {
 		data, err := os.ReadFile(file)
 		if err != nil {
@@ -119,6 +116,7 @@ func runPut(addr, file string) {
 			log.Fatal(err)
 		}
 		defer f.Close()
+
 		if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamBegin}); err != nil {
 			log.Fatal(err)
 		}
