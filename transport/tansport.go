@@ -269,9 +269,9 @@ func (tp *Transport) handleConn(conn net.Conn) {
 						fmt.Printf("Error writing DATA frame End: %s\n", err)
 						return
 					}
-					r.Close()
-					continue
 				}
+				r.Close()
+				continue
 			}
 
 		case protocol.KindPutStreamBegin:
