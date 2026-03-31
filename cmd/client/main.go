@@ -103,7 +103,7 @@ func runPut(addr, file string) {
 		log.Fatal(err)
 	}
 
-	// Single-frame PUT (storage v1) when the whole object fits in one frame.
+	// when the whole object fits in one frame, use storage v1 single PUT.
 	if fi.Size()+2 <= protocol.MaxPayload {
 		data, err := os.ReadFile(file)
 		if err != nil {
@@ -184,21 +184,31 @@ func runGet(addr, keyHex string) {
 		log.Fatal(err)
 	}
 
-	resp, err := protocol.ReadFrame(conn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, kind, body, err := protocol.ParsePayload(resp)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if kind == protocol.KindError {
-		log.Fatalf("server error: %s", string(body))
-	}
-	if kind != protocol.KindData {
-		log.Fatalf("expected DATA, got kind 0x%02x", kind)
-	}
-	if _, err := os.Stdout.Write(body); err != nil {
-		log.Fatal(err)
+	for {
+		resp, err := protocol.ReadFrame(conn)
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, kind, body, err := protocol.ParsePayload(resp)
+		if err != nil {
+			log.Fatal(err)
+		}
+		switch kind {
+		case protocol.KindError:
+			log.Fatalf("server error: %s", string(body))
+		case protocol.KindData:
+			if _, err := os.Stdout.Write(body); err != nil {
+				log.Fatal(err)
+			}
+			return
+		case protocol.KindDataChunk:
+			if _, err := os.Stdout.Write(body); err != nil {
+				log.Fatal(err)
+			}
+		case protocol.KindDataEnd:
+			return
+		default:
+			log.Fatalf("unexpected response kind 0x%02x", kind)
+		}
 	}
 }
