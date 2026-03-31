@@ -262,13 +262,13 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 					}
 
-					dataBuf := []byte{1, protocol.KindDataEnd}
-					if err := protocol.WriteFrame(conn, dataBuf); err != nil {
-						r.Close()
+				}
+				dataBuf := []byte{1, protocol.KindDataEnd}
+				if err := protocol.WriteFrame(conn, dataBuf); err != nil {
+					r.Close()
 
-						fmt.Printf("Error writing DATA frame End: %s\n", err)
-						return
-					}
+					fmt.Printf("Error writing DATA frame End: %s\n", err)
+					return
 				}
 				r.Close()
 				continue
