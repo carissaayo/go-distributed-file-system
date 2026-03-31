@@ -220,6 +220,27 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			} else {
 				for {
 					n, err := r.Read(buf)
+					if n > 0 {
+
+						writeBuf := append([]byte{1, protocol.KindDataChunk}, []byte(buf[:n])...)
+						err = protocol.WriteFrame(conn, writeBuf)
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+
+							fmt.Printf("Error Writing large frame: %s\n", err)
+							return
+
+						}
+
+					}
+
+					dataBuf := []byte{1, protocol.KindDataEnd}
+					if err := protocol.WriteFrame(conn, dataBuf); err != nil {
+						fmt.Printf("Error writing DATA frame End: %s\n", err)
+						return
+					}
 				}
 			}
 
