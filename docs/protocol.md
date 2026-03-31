@@ -14,16 +14,18 @@ Storage-specific kinds (**PUT**, **GET**, streaming, etc.) are defined in [proto
 
 Every message on the wire is **one frame**:
 
+
 | Field       | Size        | Description                                                                                                               |
 | ----------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **Length**  | 4 bytes     | Unsigned **uint32**, big-endian. Denoted **L**. Number of bytes in **Payload** only (does **not** include these 4 bytes). |
 | **Payload** | **L** bytes | Interpreted by the message layer below.                                                                                   |
 
+
 ### Limits
 
 - **Minimum L:** **2** (payload always includes **Version** + **Kind**).
 - **Maximum L:** **1_048_576** (1 MiB).  
-  If **L > 1 MiB**, the implementation **must not** allocate that much; **close the connection** (or reject in a defined way).
+If **L > 1 MiB**, the implementation **must not** allocate that much; **close the connection** (or reject in a defined way).
 
 ### Reading rule
 
@@ -42,11 +44,13 @@ Multiple frames may appear back-to-back on one TCP connection. After handling on
 
 **Payload** bytes:
 
-| Offset | Size      | Field                                                                             |
-| ------ | --------- | --------------------------------------------------------------------------------- |
-| **0**  | 1         | **Version** — must be **1** for this spec.                                        |
+
+| Offset | Size      | Field                                                                                                 |
+| ------ | --------- | ----------------------------------------------------------------------------------------------------- |
+| **0**  | 1         | **Version** — must be **1** for this spec.                                                            |
 | **1**  | 1         | **Kind** — message type (see tables in this doc and in [protocol-storage.md](./protocol-storage.md)). |
-| **2**  | **L − 2** | **Body** — optional; meaning depends on **Kind**. If **L = 2**, there is no body. |
+| **2**  | **L − 2** | **Body** — optional; meaning depends on **Kind**. If **L = 2**, there is no body.                     |
+
 
 If **Version ≠ 1**, **close the connection**.
 
@@ -54,11 +58,13 @@ If **Version ≠ 1**, **close the connection**.
 
 ## Core kinds (byte at offset 1)
 
+
 | Kind (hex) | Name  | Required **L**          | Body (bytes at offset 2 … L−1)                                           |
 | ---------- | ----- | ----------------------- | ------------------------------------------------------------------------ |
 | **0x01**   | PING  | **2** only              | None.                                                                    |
 | **0x02**   | PONG  | **2** only              | None.                                                                    |
 | **0x03**   | ERROR | **3 + N**, **N ≤ 1024** | **N** bytes of **UTF-8** error text. So **L = 2 + N**, **1 ≤ N ≤ 1024**. |
+
 
 ### Validation
 
@@ -102,3 +108,4 @@ If **Version ≠ 1**, **close the connection**.
 ## Document history
 
 - **Framing + PING/PONG/ERROR:** length-prefixed frames, optional handshake, ERROR with UTF-8 body (max 1024 bytes). Storage kinds live in [protocol-storage.md](./protocol-storage.md).
+
