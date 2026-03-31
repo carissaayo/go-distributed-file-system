@@ -205,7 +205,8 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 			fi, err := r.(*os.File).Stat()
 			if err != nil {
-				defer r.Close()
+				r.Close()
+
 				fmt.Printf("Error stat object: %s\n", err)
 				if !writeError("internal error") {
 					return
@@ -216,30 +217,45 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			size := fi.Size()
 			if size+2 <= protocol.MaxPayload {
 				buf := make([]byte, size)
+
 				if _, err := io.ReadFull(r, buf); err != nil {
+					r.Close()
+
 					fmt.Printf("Error Reading single frame: %s\n", err)
 					return
 				}
 				dataBuf := append([]byte{1, protocol.KindData}, buf...)
 
 				if err := protocol.WriteFrame(conn, dataBuf); err != nil {
+					r.Close()
+
 					fmt.Printf("Error writing DATA frame: %s\n", err)
 					return
 				}
+				r.Close()
+
 				continue
 			} else {
+				chunkBuf := make([]byte, maxBodyPerFrame)
 				for {
-					n, err := r.Read(buf)
+					n, err := r.Read(chunkBuf)
 					if n > 0 {
-
-						writeBuf := append([]byte{1, protocol.KindDataChunk}, []byte(buf[:n])...)
-						err = protocol.WriteFrame(conn, writeBuf)
+						writeBuf := append([]byte{1, protocol.KindDataChunk}, []byte(chunkBuf[:n])...)
+						if werr := protocol.WriteFrame(conn, writeBuf); werr != nil {
+							r.Close()
+							fmt.Printf("Error writing DATA_CHUNK frame: %s\n", werr)
+							return
+						}
 						if err == io.EOF {
 							break
 						}
 						if err != nil {
+							r.Close()
 
 							fmt.Printf("Error Writing large frame: %s\n", err)
+							if !writeError("read failed") {
+								return
+							}
 							return
 
 						}
@@ -248,9 +264,13 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 					dataBuf := []byte{1, protocol.KindDataEnd}
 					if err := protocol.WriteFrame(conn, dataBuf); err != nil {
+						r.Close()
+
 						fmt.Printf("Error writing DATA frame End: %s\n", err)
 						return
 					}
+					r.Close()
+					continue
 				}
 			}
 
