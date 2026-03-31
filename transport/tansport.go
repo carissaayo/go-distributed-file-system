@@ -238,7 +238,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			} else {
 				chunkBuf := make([]byte, maxBodyPerFrame)
 				for {
-					n, err := r.Read(chunkBuf)
+					n, readErr := r.Read(chunkBuf)
 					if n > 0 {
 						writeBuf := append([]byte{1, protocol.KindDataChunk}, []byte(chunkBuf[:n])...)
 						if werr := protocol.WriteFrame(conn, writeBuf); werr != nil {
@@ -246,19 +246,19 @@ func (tp *Transport) handleConn(conn net.Conn) {
 							fmt.Printf("Error writing DATA_CHUNK frame: %s\n", werr)
 							return
 						}
-						if err == io.EOF {
-							break
-						}
-						if err != nil {
-							r.Close()
 
-							fmt.Printf("Error Writing large frame: %s\n", err)
-							if !writeError("read failed") {
-								return
-							}
+					}
+					if readErr == io.EOF {
+						break
+					}
+					if readErr != nil {
+						r.Close()
+
+						fmt.Printf("Error reading object: %s\n", readErr)
+						if !writeError("read failed") {
 							return
-
 						}
+						return
 
 					}
 
