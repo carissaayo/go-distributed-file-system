@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
 )
+
+// maxBodyPerFrame is max object bytes per PUT/DATA(_CHUNK) frame body.
+const maxBodyPerFrame = protocol.MaxPayload - 2
 
 // Matches internal/protocol max frame payload (version+kind+body).
 const maxFramePayload = 1_048_576
@@ -87,12 +91,9 @@ func runPing(addr string) {
 }
 
 func runPut(addr, file string) {
-	data, err := os.ReadFile(file)
+	fi, err := os.Stat(file)
 	if err != nil {
 		log.Fatal(err)
-	}
-	if len(data)+2 > maxFramePayload {
-		log.Fatalf("file too large: max %d bytes for this protocol", maxFramePayload-2)
 	}
 
 	conn := dial(addr)
@@ -102,9 +103,44 @@ func runPut(addr, file string) {
 		log.Fatal(err)
 	}
 
-	putPayload := append([]byte{1, protocol.KindPut}, data...)
-	if err := protocol.WriteFrame(conn, putPayload); err != nil {
-		log.Fatal(err)
+	// Single-frame PUT (storage v1) when the whole object fits in one frame.
+	if fi.Size()+2 <= protocol.MaxPayload {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		putPayload := append([]byte{1, protocol.KindPut}, data...)
+		if err := protocol.WriteFrame(conn, putPayload); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		f, err := os.Open(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamBegin}); err != nil {
+			log.Fatal(err)
+		}
+		buf := make([]byte, maxBodyPerFrame)
+		for {
+			n, err := f.Read(buf)
+			if n > 0 {
+				chunk := append([]byte{1, protocol.KindPutStreamChunk}, buf[:n]...)
+				if err := protocol.WriteFrame(conn, chunk); err != nil {
+					log.Fatal(err)
+				}
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamEnd}); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	resp, err := protocol.ReadFrame(conn)
