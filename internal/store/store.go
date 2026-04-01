@@ -121,7 +121,12 @@ func (s *Store) Put(data []byte) (keyHex string, err error) {
 	return keyHex, nil
 }
 
+// Get returns the full object bytes; it is implemented via GetReader and io.ReadAll.
 func (s *Store) Get(keyHex string) ([]byte, error) {
-	path := objectPath(s.root, keyHex)
-	return os.ReadFile(path)
+	r, err := s.GetReader(keyHex)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return io.ReadAll(r)
 }
