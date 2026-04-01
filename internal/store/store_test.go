@@ -3,6 +3,7 @@ package store
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"testing"
 )
@@ -35,6 +36,49 @@ func TestGetNotFound(t *testing.T) {
 	missing := "0000000000000000000000000000000000000000000000000000000000000000"
 
 	_, err := s.Get(missing)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("want ErrNotExist, got %v", err)
+	}
+}
+
+func TestGetReaderRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(root)
+	data := []byte("read via GetReader")
+
+	key, err := s.Put(data)
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	r, err := s.GetReader(key)
+	if err != nil {
+		t.Fatalf("GetReader: %v", err)
+	}
+	got, err := io.ReadAll(r)
+	if closeErr := r.Close(); closeErr != nil {
+		t.Fatalf("Close: %v", closeErr)
+	}
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("got %q want %q", got, data)
+	}
+}
+
+func TestGetReaderNotFound(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(root)
+	missing := "0000000000000000000000000000000000000000000000000000000000000000"
+
+	r, err := s.GetReader(missing)
+	if r != nil {
+		r.Close()
+	}
 	if err == nil {
 		t.Fatal("expected error")
 	}

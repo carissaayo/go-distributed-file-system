@@ -220,3 +220,182 @@ func TestHandleConnStreamingPutGetRoundTrip(t *testing.T) {
 	conn.Close()
 	<-done
 }
+
+// readGetBodyAfterFirstDataChunk consumes frames after the first DATA_CHUNK (which is already read).
+func readGetBodyAfterFirstDataChunk(t *testing.T, conn net.Conn, firstBody []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	out.Write(firstBody)
+	for {
+		payload, err := protocol.ReadFrame(conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, kind, body, err := protocol.ParsePayload(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		switch kind {
+		case protocol.KindDataChunk:
+			out.Write(body)
+		case protocol.KindDataEnd:
+			return out.Bytes()
+		case protocol.KindError:
+			t.Fatalf("GET error: %s", string(body))
+		default:
+			t.Fatalf("unexpected kind after DATA_CHUNK: %#x", kind)
+		}
+	}
+}
+
+// TestHandleConnGetNotFound returns ERROR when the object key does not exist.
+func TestHandleConnGetNotFound(t *testing.T) {
+	root := t.TempDir()
+	st := store.NewStore(root)
+	tp := NewTransport("127.0.0.1:0", st)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c, err := ln.Accept()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		tp.handleConn(c)
+	}()
+
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPING}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := protocol.ReadFrame(conn); err != nil {
+		t.Fatal(err)
+	}
+
+	missingKey := []byte("0000000000000000000000000000000000000000000000000000000000000000")
+	get := append([]byte{1, protocol.KindGet}, missingKey...)
+	if err := protocol.WriteFrame(conn, get); err != nil {
+		t.Fatal(err)
+	}
+
+	payload, err := protocol.ReadFrame(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, kind, body, err := protocol.ParsePayload(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind != protocol.KindError {
+		t.Fatalf("want ERROR, got kind %#x", kind)
+	}
+	if len(body) < 1 {
+		t.Fatal("ERROR body empty")
+	}
+
+	conn.Close()
+	<-done
+}
+
+// TestHandleConnLargeGetUsesDataChunk validates GetReader path: first response frame is DATA_CHUNK, not DATA.
+func TestHandleConnLargeGetUsesDataChunk(t *testing.T) {
+	data := bytes.Repeat([]byte{'z'}, protocol.MaxPayload-1)
+
+	root := t.TempDir()
+	st := store.NewStore(root)
+	tp := NewTransport("127.0.0.1:0", st)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c, err := ln.Accept()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		tp.handleConn(c)
+	}()
+
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPING}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := protocol.ReadFrame(conn); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamBegin}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < len(data); {
+		end := i + maxObjectBodyPerFrame
+		if end > len(data) {
+			end = len(data)
+		}
+		chunk := append([]byte{1, protocol.KindPutStreamChunk}, data[i:end]...)
+		if err := protocol.WriteFrame(conn, chunk); err != nil {
+			t.Fatal(err)
+		}
+		i = end
+	}
+	if err := protocol.WriteFrame(conn, []byte{1, protocol.KindPutStreamEnd}); err != nil {
+		t.Fatal(err)
+	}
+
+	storedFr, err := protocol.ReadFrame(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, skind, keyHex, err := protocol.ParsePayload(storedFr)
+	if err != nil || skind != protocol.KindStored {
+		t.Fatalf("STORED: %v kind %#x", err, skind)
+	}
+
+	get := append([]byte{1, protocol.KindGet}, keyHex...)
+	if err := protocol.WriteFrame(conn, get); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := protocol.ReadFrame(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, k1, firstBody, err := protocol.ParsePayload(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k1 != protocol.KindDataChunk {
+		t.Fatalf("large object GET: want first frame DATA_CHUNK, got %#x", k1)
+	}
+
+	got := readGetBodyAfterFirstDataChunk(t, conn, firstBody)
+	if !bytes.Equal(got, data) {
+		t.Fatalf("body mismatch: got %d bytes want %d", len(got), len(data))
+	}
+
+	conn.Close()
+	<-done
+}
