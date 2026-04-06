@@ -5,8 +5,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
-	"github.com/carissaayo/go-tcp-scratch/internal/store"
+	"github.com/carissaayo/go-distributed-file-system/internal/protocol"
+	"github.com/carissaayo/go-distributed-file-system/internal/store"
 )
 
 // maxObjectBodyPerFrame is the max raw object bytes in one PUT/DATA(_CHUNK) frame (matches transport + client).

@@ -4,8 +4,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/carissaayo/go-tcp-scratch/internal/store"
-	"github.com/carissaayo/go-tcp-scratch/transport"
+	"github.com/carissaayo/go-distributed-file-system/internal/store"
+	"github.com/carissaayo/go-distributed-file-system/transport"
 )
 
 func main() {

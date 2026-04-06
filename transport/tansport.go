@@ -7,8 +7,8 @@ import (
 	"net"
 	"os"
 
-	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
-	"github.com/carissaayo/go-tcp-scratch/internal/store"
+	"github.com/carissaayo/go-distributed-file-system/internal/protocol"
+	"github.com/carissaayo/go-distributed-file-system/internal/store"
 )
 
 // maxBodyPerFrame is the max object bytes per DATA / DATA_CHUNK frame (L = 2 + body ≤ MaxPayload).

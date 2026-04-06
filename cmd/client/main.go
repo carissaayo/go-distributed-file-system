@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/carissaayo/go-tcp-scratch/internal/protocol"
+	"github.com/carissaayo/go-distributed-file-system/internal/protocol"
 )
 
 // maxBodyPerFrame is max object bytes per PUT/DATA(_CHUNK) frame body.
