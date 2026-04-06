@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"github.com/carissaayo/go-tcp-scratch/internal/store"
@@ -8,16 +9,21 @@ import (
 )
 
 func main() {
-	listenAddr := ":3000"
-	dataDir := "./data"
+	log.SetPrefix("server: ")
+	log.SetFlags(log.LstdFlags)
 
-	st := store.NewStore(dataDir)
-	tp := transport.NewTransport(listenAddr, st)
+	listenAddr := flag.String("addr", ":3000", "TCP listen address (e.g. :3000 or 127.0.0.1:3000)")
+	dataDir := flag.String("data", "./data", "directory for stored blob files")
+	flag.Parse()
+
+	st := store.NewStore(*dataDir)
+	tp := transport.NewTransport(*listenAddr, st)
 
 	if err := tp.Listen(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("listen on %s: %v", *listenAddr, err)
 	}
 
-	select {}
+	log.Printf("listening on %s, data root %s", *listenAddr, *dataDir)
 
+	select {}
 }

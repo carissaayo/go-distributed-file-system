@@ -2,8 +2,8 @@ package transport
 
 import (
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 
@@ -56,11 +56,11 @@ func (tp *Transport) Accept() {
 		conn, err := tp.Listener.Accept()
 
 		if err != nil {
-			fmt.Printf("TCP accept error: %s\n", err)
+			log.Printf("accept: %v", err)
 			continue
 		}
 
-		fmt.Printf("new incoming connection %+v\n", conn)
+		log.Printf("connection from %s", conn.RemoteAddr())
 		go tp.handleConn(conn)
 	}
 }
@@ -80,7 +80,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 		}
 		p := append(append([]byte{}, errorBuf...), []byte(msg)...)
 		if err := protocol.WriteFrame(conn, p); err != nil {
-			fmt.Printf("Error writing ERROR frame: %s\n", err)
+			log.Printf("write ERROR frame: %v", err)
 			return false
 		}
 		return true
@@ -101,13 +101,13 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
-			fmt.Printf("TCP error: %s\n", err)
+			log.Printf("read frame: %v", err)
 			break
 		}
 
 		_, kind, body, err := protocol.ParsePayload(payload)
 		if err != nil {
-			fmt.Printf("Error parsing the payload: %s\n", err)
+			log.Printf("parse payload: %v", err)
 			return
 
 		}
@@ -138,7 +138,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				upload = nil
 
 				if res.err != nil {
-					fmt.Printf("Error storing stream: %s\n", res.err)
+					log.Printf("PutReader failed: %v", res.err)
 					if !writeError("store failed") {
 						return
 					}
@@ -148,7 +148,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				stored := append([]byte{1, protocol.KindStored}, []byte(res.keyHex)...)
 
 				if err := protocol.WriteFrame(conn, stored); err != nil {
-					fmt.Printf("Error writing STORED frame: %s\n", err)
+					log.Printf("write STORED: %v", err)
 					return
 				}
 
@@ -165,7 +165,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 		case protocol.KindPING:
 			err := protocol.WriteFrame(conn, pongbuf)
 			if err != nil {
-				fmt.Printf("Error writing the payload: %s\n", err)
+				log.Printf("write PONG: %v", err)
 				return
 			}
 			continue
@@ -173,7 +173,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 		case protocol.KindPut:
 			keyHex, err := tp.store.Put(body)
 			if err != nil {
-				fmt.Printf("Error storing the body: %s\n", err)
+				log.Printf("store Put: %v", err)
 				return
 			}
 			storedBuf := []byte{1, protocol.KindStored}
@@ -182,7 +182,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 
 			err = protocol.WriteFrame(conn, data)
 			if err != nil {
-				fmt.Printf("Error writing the payload: %s\n", err)
+				log.Printf("write STORED: %v", err)
 				return
 			}
 
@@ -192,10 +192,10 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				if os.IsNotExist(err) {
 					errPayload := append(errorBuf, []byte("data not found")...)
 					if werr := protocol.WriteFrame(conn, errPayload); werr != nil {
-						fmt.Printf("Error writing ERROR frame: %s\n", werr)
+						log.Printf("write ERROR (not found): %v", werr)
 					}
 				} else {
-					fmt.Printf("Error opening object: %s\n", err)
+					log.Printf("open object: %v", err)
 					if !writeError("internal error") {
 						return
 					}
@@ -207,7 +207,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 			if err != nil {
 				r.Close()
 
-				fmt.Printf("Error stat object: %s\n", err)
+				log.Printf("stat object: %v", err)
 				if !writeError("internal error") {
 					return
 				}
@@ -221,7 +221,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				if _, err := io.ReadFull(r, buf); err != nil {
 					r.Close()
 
-					fmt.Printf("Error Reading single frame: %s\n", err)
+					log.Printf("read object for DATA: %v", err)
 					return
 				}
 				dataBuf := append([]byte{1, protocol.KindData}, buf...)
@@ -229,7 +229,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				if err := protocol.WriteFrame(conn, dataBuf); err != nil {
 					r.Close()
 
-					fmt.Printf("Error writing DATA frame: %s\n", err)
+					log.Printf("write DATA: %v", err)
 					return
 				}
 				r.Close()
@@ -243,7 +243,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 						writeBuf := append([]byte{1, protocol.KindDataChunk}, []byte(chunkBuf[:n])...)
 						if werr := protocol.WriteFrame(conn, writeBuf); werr != nil {
 							r.Close()
-							fmt.Printf("Error writing DATA_CHUNK frame: %s\n", werr)
+							log.Printf("write DATA_CHUNK: %v", werr)
 							return
 						}
 
@@ -254,7 +254,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 					if readErr != nil {
 						r.Close()
 
-						fmt.Printf("Error reading object: %s\n", readErr)
+						log.Printf("read object chunk: %v", readErr)
 						if !writeError("read failed") {
 							return
 						}
@@ -267,7 +267,7 @@ func (tp *Transport) handleConn(conn net.Conn) {
 				if err := protocol.WriteFrame(conn, dataBuf); err != nil {
 					r.Close()
 
-					fmt.Printf("Error writing DATA frame End: %s\n", err)
+					log.Printf("write DATA_END: %v", err)
 					return
 				}
 				r.Close()
